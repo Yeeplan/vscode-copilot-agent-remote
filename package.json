@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "vite-plugin-pwa": "^1.2.0",
+    "vue-router": "^4.6.4",
+    "workbox-window": "^7.4.0"
+  }
+}

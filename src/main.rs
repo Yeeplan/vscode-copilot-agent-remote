@@ -1,9 +1,10 @@
 use axum::{
     extract::{Json, Query},
-    http::StatusCode,
+    http::{Method, StatusCode},
     routing::{get, post},
     Router,
 };
+use tower_http::cors::{Any, CorsLayer};
 use serde::{Deserialize, Serialize};
 use std::{
     io::Write,
@@ -232,6 +233,22 @@ end tell"#,
         if let Err(e) = run_applescript(&paste_script) {
             server_err!(format!("Paste failed: {e}"));
         }
+
+        // Wait 3 seconds then press Enter to trigger agent response
+        sleep(Duration::from_millis(3000)).await;
+
+        let enter_script = format!(
+            r#"tell application "System Events"
+  set vsProc to first process whose name is "{app_name}"
+  set frontmost of vsProc to true
+  key code 36
+end tell"#,
+            app_name = req.app_name,
+        );
+
+        if let Err(e) = run_applescript(&enter_script) {
+            server_err!(format!("Enter key failed: {e}"));
+        }
     }
 
     (
@@ -315,13 +332,19 @@ async fn main() {
         .and_then(|p| p.parse().ok())
         .unwrap_or(3030);
 
+    let cors = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers(Any)
+        .allow_origin(Any);
+
     let app = Router::new()
         .route("/health", get(health))
         .route("/api/windows", get(handle_list_windows))
-        .route("/api/focus", post(handle_focus));
+        .route("/api/focus", post(handle_focus))
+        .layer(cors);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    println!("vscode-remote-control listening on http://{addr}");
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    println!("vscode-remote-control listening on http://0.0.0.0:{port}");
     println!();
     println!("Endpoints:");
     println!("  GET  /health");

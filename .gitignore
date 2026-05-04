@@ -15,6 +15,34 @@
 *.swp
 *.swo
 
+# Build output
+/target/
+
+# Cargo lock (keep for binaries, remove this line for libraries)
+# Cargo.lock
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
 # Environment
 .env
 .env.local
+
+# Node
+node_modules/
+pwa/node_modules/
+
+# PWA build output
+pwa/dist/
+pwa/dist-single/
+
+# PWA dev cache
+pwa/.vite/

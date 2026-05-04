@@ -8,6 +8,9 @@ The server uses AppleScript (`osascript`) to:
 1. Raise and focus a VS Code window matching a partial title string.
 2. Open the Copilot Chat panel with **Cmd+Shift+I**.
 3. Write the desired text to the system clipboard and paste it into the chat input.
+4. Wait 3 seconds, then press **Enter** to trigger the Copilot Agent response.
+
+A companion [PWA app](./pwa/) provides an iPhone-friendly UI to browse windows and send chat messages.
 
 ## Requirements
 
@@ -89,11 +92,15 @@ curl -X POST http://127.0.0.1:3030/api/focus \
 { "success": true, "message": "OK" }
 ```
 
+## CORS
+
+The server includes a permissive CORS policy (`Access-Control-Allow-Origin: *`) so the PWA and browser-based clients can call the API from any origin.
+
 ## Security notes
 
 - `window_name` and `app_name` are validated to reject `"` and `\` characters, preventing AppleScript injection.
 - `chat_content` is written to the clipboard via `pbcopy` and never embedded in AppleScript strings.
-- The server binds to `127.0.0.1` only and is not intended to be exposed to the network.
+- The server binds to `0.0.0.0` and is accessible on the local network. Keep it behind a firewall or restrict access as needed.
 
 ## License
 
