@@ -12,6 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEPLOY_DIR="${HOME}/tools/vscode-copilot-agent-remote"
 PLIST_LABEL="com.vscode-copilot-agent-remote"
 PLIST_FILE="${HOME}/Library/LaunchAgents/${PLIST_LABEL}.plist"
+CERT_NAME="vscode-remote-control-codesign"   # 自签名代码签名证书名称
 
 # ── Step 1: 编译 ──────────────────────────────────────────────────────────────
 echo "▶ 编译 Rust 程序（release 模式）..."
@@ -26,7 +27,60 @@ cp "target/release/${BINARY_NAME}" "${DEPLOY_DIR}/${BINARY_NAME}"
 chmod +x "${DEPLOY_DIR}/${BINARY_NAME}"
 echo "✓ 文件部署完成：${DEPLOY_DIR}/${BINARY_NAME}"
 
-# ── Step 3: 检查并配置 launchd 服务 ──────────────────────────────────────────
+# ── Step 3: 确保代码签名证书存在（首次自动创建）──────────────────────────────
+# 原理：TCC 存储的是签名证书的"指定要求"（Designated Requirement），
+# 而不是二进制内容的哈希。用同一张证书重新签名后 DR 不变，TCC 无需重新授权。
+# 无需完整磁盘访问权限，证书只存储在用户 login.keychain 中。
+echo "▶ 检查代码签名证书..."
+if ! security find-identity -v -p codesigning 2>/dev/null | grep -qF "\"${CERT_NAME}\""; then
+  echo "  未找到证书，正在自动创建（首次部署执行一次）..."
+  TMP="${TMPDIR:-/tmp}/vrc_codesign_$$"
+
+  # 生成密钥和自签名证书（macOS 内置 LibreSSL，无需额外依赖）
+  cat > "${TMP}.cnf" << 'CNFEOF'
+[req]
+distinguished_name = req_dn
+x509_extensions    = v3_req
+prompt             = no
+[req_dn]
+CN = vscode-remote-control-codesign
+[v3_req]
+keyUsage         = critical, digitalSignature
+extendedKeyUsage = codeSigning
+basicConstraints = CA:FALSE
+CNFEOF
+
+  /usr/bin/openssl req -x509 -newkey rsa:2048 -sha256 \
+    -keyout "${TMP}.key" -out "${TMP}.crt" \
+    -days 3650 -nodes -config "${TMP}.cnf" 2>/dev/null
+
+  /usr/bin/openssl pkcs12 -export \
+    -out "${TMP}.p12" -inkey "${TMP}.key" -in "${TMP}.crt" \
+    -passout pass:vrc_tmp 2>/dev/null
+
+  # 导入 login.keychain，预授权 codesign 无提示访问私钥
+  security import "${TMP}.p12" \
+    -k ~/Library/Keychains/login.keychain-db \
+    -P vrc_tmp -T /usr/bin/codesign -A 2>/dev/null
+
+  # 将证书设为用户级受信任的代码签名证书
+  # （不加 -d 表示 user 域，无需 sudo）
+  security add-trusted-cert -r trustRoot -p codeSign \
+    -k ~/Library/Keychains/login.keychain-db "${TMP}.crt"
+
+  rm -f "${TMP}".{cnf,key,crt,p12}
+  echo "✓ 代码签名证书已创建：${CERT_NAME}"
+else
+  echo "✓ 代码签名证书已存在"
+fi
+
+# ── Step 4: 对二进制文件签名 ──────────────────────────────────────────────────
+echo "▶ 对二进制文件进行代码签名..."
+codesign --force --sign "${CERT_NAME}" "${DEPLOY_DIR}/${BINARY_NAME}"
+echo "✓ 代码签名完成"
+echo "  （辅助功能权限只需在首次部署后手动授权一次，后续 deploy 自动保持有效）"
+
+# ── Step 5: 检查并配置 launchd 服务 ──────────────────────────────────────────
 if launchctl list | grep -q "${PLIST_LABEL}"; then
   echo "▶ 服务 ${PLIST_LABEL} 已配置，重新加载..."
   launchctl unload "${PLIST_FILE}" 2>/dev/null || true

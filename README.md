@@ -43,7 +43,12 @@ iPhone (PWA)
 - macOS（需要 AppleScript / osascript）
 - [Rust toolchain](https://rustup.rs/)
 - VS Code 或 VS Code Insiders，已安装 GitHub Copilot Chat
-- 在 **系统偏好设置 → 隐私与安全性 → 辅助功能** 中授予二进制文件权限
+- 在 **系统设置 → 隐私与安全性 → 辅助功能** 中授予二进制文件权限
+
+> **注意（LaunchAgent）**：从终端直接运行时，Terminal.app 的辅助功能权限会被继承，无需额外配置。但部署为 LaunchAgent 服务后，需要将 **二进制文件本身** 加入辅助功能白名单，否则 AppleScript 调用会报错 `-25211`：
+> 1. 打开 **系统设置 → 隐私与安全性 → 辅助功能**
+> 2. 点击 `+`，添加 `~/tools/vscode-copilot-agent-remote/vscode-remote-control`
+> 3. 重启服务：`launchctl unload ~/Library/LaunchAgents/com.vscode-copilot-agent-remote.plist && launchctl load ~/Library/LaunchAgents/com.vscode-copilot-agent-remote.plist`
 
 ### 手动构建与运行
 

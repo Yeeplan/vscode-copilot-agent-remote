@@ -6,10 +6,7 @@ use axum::{
 };
 use tower_http::cors::{Any, CorsLayer};
 use serde::{Deserialize, Serialize};
-use std::{
-    net::SocketAddr,
-    process::Command,
-};
+use std::net::SocketAddr;
 use tokio::time::{sleep, Duration};
 
 // ---------------------------------------------------------------------------
@@ -98,13 +95,29 @@ fn validate_as_string_arg(label: &str, value: &str) -> Result<(), ApiResponse> {
     Ok(())
 }
 
-/// Run an AppleScript snippet via `osascript -e`.
-fn run_applescript(script: &str) -> Result<String, String> {
-    let output = Command::new("osascript")
-        .arg("-e")
-        .arg(script)
-        .output()
-        .map_err(|e| format!("Failed to spawn osascript: {e}"))?;
+/// Run an AppleScript snippet via `osascript -e`, with a 10-second timeout.
+///
+/// macOS TCC checks the *responsible process* hierarchy.  Because
+/// `vscode-remote-control` is the parent that spawns `osascript`, TCC grants
+/// access when this binary is listed in
+/// System Settings → Privacy & Security → Accessibility.
+/// This mirrors how Terminal.app → osascript works.
+async fn run_applescript(script: &str) -> Result<String, String> {
+    let output = tokio::time::timeout(
+        Duration::from_secs(10),
+        tokio::process::Command::new("osascript")
+            .arg("-e")
+            .arg(script)
+            .output(),
+    )
+    .await
+    .map_err(|_| {
+        "osascript timed out (10s) — ensure the binary is added to \
+         System Settings → Privacy & Security → Accessibility, \
+         then restart the service"
+            .to_string()
+    })?
+    .map_err(|e| format!("Failed to spawn osascript: {e}"))?;
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -114,21 +127,18 @@ fn run_applescript(script: &str) -> Result<String, String> {
 }
 
 /// Write `content` to the system clipboard via a temp file + osascript.
-/// Using osascript instead of pbcopy so this works correctly when the
-/// program is running as a macOS LaunchAgent (pbcopy cannot reach the
-/// user's graphical pasteboard server in that context).
-fn set_clipboard(content: &str) -> Result<(), String> {
+async fn set_clipboard(content: &str) -> Result<(), String> {
     let tmp_path = "/tmp/vscode_rc_clipboard.txt";
     std::fs::write(tmp_path, content)
         .map_err(|e| format!("Failed to write temp file: {e}"))?;
 
     let script = format!(
-        r#"set fileContent to (read POSIX file "{tmp_path}")
+        r#"set fileContent to (read POSIX file "{tmp_path}" as «class utf8»)
 set the clipboard to fileContent"#,
         tmp_path = tmp_path
     );
 
-    let result = run_applescript(&script);
+    let result = run_applescript(&script).await;
     let _ = std::fs::remove_file(tmp_path);
     result.map(|_| ())
 }
@@ -185,7 +195,7 @@ end tell"#,
         window_name = req.window_name,
     );
 
-    if let Err(e) = run_applescript(&focus_script) {
+    if let Err(e) = run_applescript(&focus_script).await {
         bad_req!(format!("Focus failed: {e}"));
     }
 
@@ -202,7 +212,7 @@ end tell"#,
             app_name = req.app_name,
         );
 
-        if let Err(e) = run_applescript(&open_chat_script) {
+        if let Err(e) = run_applescript(&open_chat_script).await {
             server_err!(format!("Open chat failed: {e}"));
         }
     }
@@ -211,7 +221,7 @@ end tell"#,
     if let Some(ref content) = req.chat_content {
         sleep(Duration::from_millis(req.step_delay_ms)).await;
 
-        if let Err(e) = set_clipboard(content) {
+        if let Err(e) = set_clipboard(content).await {
             server_err!(format!("Clipboard error: {e}"));
         }
 
@@ -227,7 +237,7 @@ end tell"#,
             app_name = req.app_name,
         );
 
-        if let Err(e) = run_applescript(&paste_script) {
+        if let Err(e) = run_applescript(&paste_script).await {
             server_err!(format!("Paste failed: {e}"));
         }
 
@@ -243,7 +253,7 @@ end tell"#,
             app_name = req.app_name,
         );
 
-        if let Err(e) = run_applescript(&enter_script) {
+        if let Err(e) = run_applescript(&enter_script).await {
             server_err!(format!("Enter key failed: {e}"));
         }
     }
@@ -288,7 +298,7 @@ end tell"#,
         app_name = q.app_name,
     );
 
-    match run_applescript(&script) {
+    match run_applescript(&script).await {
         Ok(output) => {
             let windows: Vec<String> = output
                 .lines()
