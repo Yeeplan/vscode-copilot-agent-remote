@@ -7,9 +7,8 @@ use axum::{
 use tower_http::cors::{Any, CorsLayer};
 use serde::{Deserialize, Serialize};
 use std::{
-    io::Write,
     net::SocketAddr,
-    process::{Command, Stdio},
+    process::Command,
 };
 use tokio::time::{sleep, Duration};
 
@@ -114,26 +113,24 @@ fn run_applescript(script: &str) -> Result<String, String> {
     }
 }
 
-/// Write `content` to the system clipboard using `pbcopy`.
-/// This avoids embedding arbitrary text inside AppleScript string literals.
+/// Write `content` to the system clipboard via a temp file + osascript.
+/// Using osascript instead of pbcopy so this works correctly when the
+/// program is running as a macOS LaunchAgent (pbcopy cannot reach the
+/// user's graphical pasteboard server in that context).
 fn set_clipboard(content: &str) -> Result<(), String> {
-    let mut child = Command::new("pbcopy")
-        .stdin(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to spawn pbcopy: {e}"))?;
+    let tmp_path = "/tmp/vscode_rc_clipboard.txt";
+    std::fs::write(tmp_path, content)
+        .map_err(|e| format!("Failed to write temp file: {e}"))?;
 
-    child
-        .stdin
-        .as_mut()
-        .expect("stdin piped")
-        .write_all(content.as_bytes())
-        .map_err(|e| format!("Failed to write to pbcopy: {e}"))?;
+    let script = format!(
+        r#"set fileContent to (read POSIX file "{tmp_path}")
+set the clipboard to fileContent"#,
+        tmp_path = tmp_path
+    );
 
-    child
-        .wait()
-        .map_err(|e| format!("pbcopy wait failed: {e}"))?;
-
-    Ok(())
+    let result = run_applescript(&script);
+    let _ = std::fs::remove_file(tmp_path);
+    result.map(|_| ())
 }
 
 // ---------------------------------------------------------------------------
