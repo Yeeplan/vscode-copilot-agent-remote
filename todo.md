@@ -1,0 +1,4 @@
+- [x] 找出本机的vscode insider打开了valuego-web工程的chat输入窗口，并进行激活
+- [] 创建readme
+- [] 创建.gitignore
+- [] 提交github
