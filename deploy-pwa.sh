@@ -8,7 +8,7 @@ set -euo pipefail
 
 # ── 配置 ──────────────────────────────────────────────────────────────────────
 REMOTE_USER="flannian"
-REMOTE_HOST="192.168.1.6"
+REMOTE_HOST="10.66.66.1"
 REMOTE_DIR="/home/${REMOTE_USER}/vscode-copilot-agent-remote"
 NGINX_PORT="2654"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

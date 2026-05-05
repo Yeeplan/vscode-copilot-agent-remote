@@ -93,20 +93,35 @@ EOF
 }
 
 reload_launch_agent() {
-  local bootout_target="gui/$(id -u)/${PLIST_LABEL}"
+  local service_target="gui/$(id -u)/${PLIST_LABEL}"
 
   write_launch_agent
 
-  log "▶ 配置 macOS LaunchAgent..."
-  launchctl bootout "${bootout_target}" >/dev/null 2>&1 || true
-  if launchctl bootstrap "gui/$(id -u)" "${PLIST_FILE}" >/dev/null 2>&1; then
-    :
-  else
-    launchctl load "${PLIST_FILE}"
+  # 停止旧实例（首次安装时可能不存在，忽略失败）
+  if launchctl bootout "${service_target}" 2>/dev/null; then
+    log "  已停止旧服务实例"
   fi
-  launchctl enable "gui/$(id -u)/${PLIST_LABEL}" >/dev/null 2>&1 || true
-  launchctl kickstart -k "gui/$(id -u)/${PLIST_LABEL}" >/dev/null 2>&1 || true
-  log "✓ LaunchAgent 已加载：${PLIST_FILE}"
+
+  # 注册并启动服务
+  log "▶ 启动服务 ${PLIST_LABEL}..."
+  if ! launchctl bootstrap "gui/$(id -u)" "${PLIST_FILE}" 2>/dev/null; then
+    launchctl load -w "${PLIST_FILE}"
+  fi
+  launchctl enable "${service_target}" 2>/dev/null || true
+
+  # 等待进程启动，最多 5 秒
+  local i=0
+  while (( i < 10 )); do
+    if launchctl print "${service_target}" 2>/dev/null | grep -q "state = running"; then
+      log "✓ 服务已成功重启并正在运行"
+      return 0
+    fi
+    sleep 0.5
+    (( i++ )) || true
+  done
+
+  log "⚠ 服务已加载，但 5 秒内未检测到 running 状态（可能正在初始化，请稍后检查）"
+  log "   检查命令：launchctl print ${service_target}"
 }
 
 install_binary() {

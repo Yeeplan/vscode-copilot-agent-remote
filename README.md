@@ -117,13 +117,14 @@ PORT=8080 ./target/release/vscode-remote-control
 
 | 查询参数 | 默认值 | 说明 |
 |---|---|---|
-| `app_name` | `Code - Insiders` | 进程名（Activity Monitor 中显示的名称） |
+| `app_name` | `Code - Insiders` | 进程名（Activity Monitor 中显示的名称），可使用 `Code` 或 `Code - Insiders` |
 
 **示例**
 
 ```bash
 curl "http://127.0.0.1:3030/api/windows"
 curl "http://127.0.0.1:3030/api/windows?app_name=Code%20-%20Insiders"
+curl "http://127.0.0.1:3030/api/windows?app_name=Code"
 ```
 
 **响应**
@@ -145,7 +146,7 @@ curl "http://127.0.0.1:3030/api/windows?app_name=Code%20-%20Insiders"
 
 | 字段 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| `app_name` | string | `"Code - Insiders"` | 进程名 |
+| `app_name` | string | `"Code - Insiders"` | 进程名（可选 `Code` 或 `Code - Insiders`） |
 | `window_name` | string | *(必填)* | 窗口标题的部分匹配字符串 |
 | `open_chat` | bool | `true` | 聚焦后是否打开 Copilot Chat 面板 |
 | `chat_content` | string \| null | `null` | 要粘贴到 Chat 输入框的文本 |
@@ -180,6 +181,7 @@ curl -X POST http://127.0.0.1:3030/api/focus \
 - `window_name` 和 `app_name` 会校验，拒绝含 `"` 或 `\` 的值，防止 AppleScript 注入。
 - `chat_content` 通过 osascript 写入剪贴板，不嵌入 AppleScript 字符串中。
 - 服务监听 `0.0.0.0`，局域网内可访问，请确保在防火墙后运行或限制访问来源。
+- 当 `app_name` 不存在或指定的应用未运行时，服务会在 `Code - Insiders` 和 `Code` 之间自动回退，尽量兼容 VS Code Insiders 与 VS Code。
 
 ---
 
@@ -230,7 +232,7 @@ npm run build:single # 单文件 HTML 构建，输出到 pwa/dist-single/index.h
 - 文件部署路径：`~/vscode-copilot-agent-remote/dist/`
 - 访问地址：`http://192.168.1.6:2654/`
 
-nginx 配置单独由 `config-nginx.sh` 完成（仅首次部署时需要执行）。
+nginx 配置单独由 `config-nginx.sh` 完成。首次部署必须执行；如果后续调整了缓存策略、端口或站点规则，也需要重新执行一次。
 
 ---
 

@@ -20,7 +20,11 @@ const routes = [
     path: '/mac/:macId/chat/:windowName',
     name: 'chat',
     component: ChatView,
-    props: true,
+    props: route => ({
+      macId: route.params.macId,
+      windowName: route.params.windowName,
+      appName: typeof route.query.appName === 'string' ? route.query.appName : '',
+    }),
   },
   {
     path: '/settings',

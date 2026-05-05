@@ -20,3 +20,5 @@ callWithAsyncErrorHandling @ runtime-core.esm-bundler.js:206
 - [x] 创建部署rust程序的脚本deploy-rust.sh，部署前自动编译，部署到本机~/tools/vscode-copilot-agent-remote文件夹，部署后检查是否已配置为服务，如果没有则将其配置为服务
 - [x] rust程序部署为服务后，调用http://192.168.1.14:3030/api/focus，发送{"window_name":"Visual Studio Code - Insiders","open_chat":true,"chat_content":"你是谁？"}，能够激活窗口，但是不会自动填写内容了。直接用terminal运行则无此问题。
 - [x] deploy-rust.sh的方式对于普通用户还是太复杂，能否生成一个dmg安装器
+- [x] rust程序需求既支持VSCode Insider，也支持VSCode
+- [x] pwa更新后需保证被浏览器缓存的旧版能够失效

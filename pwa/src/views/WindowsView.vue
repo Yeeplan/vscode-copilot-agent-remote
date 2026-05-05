@@ -36,7 +36,7 @@
       <div v-else class="list-group">
         <button
           v-for="win in windows"
-          :key="win"
+          :key="`${win.app_name}::${win.title}`"
           class="list-item"
           @click="openChat(win)"
         >
@@ -44,7 +44,8 @@
             <span class="vscode-icon">⌨️</span>
           </div>
           <div class="list-item-content">
-            <span class="list-item-title">{{ win }}</span>
+            <span class="list-item-title">{{ win.title }}</span>
+            <span class="list-item-subtitle">{{ win.app_name }}</span>
           </div>
           <div class="list-item-chevron">›</div>
         </button>
@@ -86,6 +87,17 @@ const navTitle = computed(() => {
   return mac.value ? `${mac.value.name} · 窗口` : 'Mac 窗口'
 })
 
+function normalizeWindow(win) {
+  if (typeof win === 'string') {
+    return { app_name: 'Code - Insiders', title: win }
+  }
+
+  return {
+    app_name: win?.app_name || 'Code - Insiders',
+    title: win?.title || '',
+  }
+}
+
 function loadCache() {
   try {
     const cached = localStorage.getItem(CACHE_KEY)
@@ -109,7 +121,8 @@ async function loadWindows() {
     const res = await fetch(`${mac.value.address}/api/windows`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
-    const list = data.windows ?? data
+    const rawList = Array.isArray(data?.windows) ? data.windows : (Array.isArray(data) ? data : [])
+    const list = rawList.map(normalizeWindow).filter(win => win.title)
     windows.value = list
     saveCache(list)
   } catch (e) {
@@ -124,8 +137,12 @@ async function loadWindows() {
   }
 }
 
-function openChat(windowName) {
-  router.push({ name: 'chat', params: { macId: props.macId, windowName } })
+function openChat(win) {
+  router.push({
+    name: 'chat',
+    params: { macId: props.macId, windowName: win.title },
+    query: { appName: win.app_name },
+  })
 }
 
 onMounted(() => {

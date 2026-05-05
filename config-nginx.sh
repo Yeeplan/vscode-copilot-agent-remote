@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REMOTE_USER="flannian"
-REMOTE_HOST="192.168.1.6"
+REMOTE_HOST="10.66.66.1"
 REMOTE_DIR="/home/${REMOTE_USER}/vscode-copilot-agent-remote"
 NGINX_PORT="2654"
 TMP_SCRIPT="/tmp/_config_nginx_$$.sh"
@@ -31,6 +31,22 @@ server {
     # SPA fallback: history mode 下所有路径返回 index.html
     location / {
         try_files \$uri \$uri/ /index.html;
+    }
+
+    # 始终重新校验应用外壳与 service worker，避免 PWA 被旧缓存卡住
+    location = /index.html {
+        expires -1;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    location = /sw.js {
+        expires -1;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    location = /manifest.webmanifest {
+        expires -1;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
     # 缓存静态资源

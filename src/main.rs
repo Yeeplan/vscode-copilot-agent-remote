@@ -47,9 +47,17 @@ struct ApiResponse {
 }
 
 #[derive(Serialize)]
+struct WindowEntry {
+    app_name: String,
+    title: String,
+}
+
+#[derive(Serialize)]
 struct WindowsResponse {
     success: bool,
-    windows: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message: Option<String>,
+    windows: Vec<WindowEntry>,
 }
 
 // ---------------------------------------------------------------------------
@@ -143,6 +151,110 @@ set the clipboard to fileContent"#,
     result.map(|_| ())
 }
 
+async fn app_process_exists(app_name: &str) -> Result<bool, String> {
+    let script = format!(
+        r#"tell application "System Events"
+  return (count of (every process whose name is "{app_name}")) > 0
+end tell"#,
+        app_name = app_name,
+    );
+
+    let output = run_applescript(&script).await?;
+    Ok(output.trim() == "true")
+}
+
+fn alternate_app_name(app_name: &str) -> Option<&'static str> {
+    match app_name {
+        "Code - Insiders" => Some("Code"),
+        "Code" => Some("Code - Insiders"),
+        _ => None,
+    }
+}
+
+fn candidate_app_names(app_name: &str) -> Vec<&str> {
+    let mut names = vec![app_name];
+    if let Some(alternate) = alternate_app_name(app_name) {
+        names.push(alternate);
+    }
+    names
+}
+
+async fn resolve_running_app_names(app_name: &str) -> Result<Vec<String>, ApiResponse> {
+    let mut running = Vec::new();
+
+    for candidate in candidate_app_names(app_name) {
+        if app_process_exists(candidate).await.map_err(|e| ApiResponse {
+            success: false,
+            message: format!("检查进程状态失败：{e}"),
+        })? {
+            running.push(candidate.to_string());
+        }
+    }
+
+    if !running.is_empty() {
+        return Ok(running);
+    }
+
+    Err(ApiResponse {
+        success: false,
+        message: format!(
+            "未找到进程 '{}'，也未找到 '{}'。请确保已启动 VS Code 或 VS Code Insiders。",
+            app_name,
+            alternate_app_name(app_name).unwrap_or("Code 或 Code - Insiders")
+        ),
+    })
+}
+
+async fn list_windows_for_app(app_name: &str) -> Result<Vec<String>, String> {
+    let script = format!(
+        r#"tell application "System Events"
+  set vsProc to first process whose name is "{app_name}"
+  set output to ""
+  repeat with w in (every window of vsProc)
+    try
+      set t to title of w
+      if t is not "" then
+        set output to output & t & linefeed
+      end if
+    end try
+  end repeat
+  return output
+end tell"#,
+        app_name = app_name,
+    );
+
+    let output = run_applescript(&script).await?;
+    Ok(output
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(|line| line.to_string())
+        .collect())
+}
+
+async fn resolve_window_app_name(preferred_app_name: &str, window_name: &str) -> Result<String, ApiResponse> {
+    let running_apps = resolve_running_app_names(preferred_app_name).await?;
+
+    for app_name in &running_apps {
+        let windows = list_windows_for_app(app_name).await.map_err(|e| ApiResponse {
+            success: false,
+            message: format!("读取窗口列表失败：{e}"),
+        })?;
+
+        if windows.iter().any(|title| title.contains(window_name)) {
+            return Ok(app_name.clone());
+        }
+    }
+
+    Err(ApiResponse {
+        success: false,
+        message: format!(
+            "未在 {} 中找到包含 '{}' 的窗口。",
+            running_apps.join(" / "),
+            window_name
+        ),
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
@@ -183,6 +295,11 @@ async fn handle_focus(Json(req): Json<FocusRequest>) -> (StatusCode, Json<ApiRes
         bad_req!(e.message);
     }
 
+    let app_name = match resolve_window_app_name(&req.app_name, &req.window_name).await {
+        Ok(name) => name,
+        Err(err) => return (StatusCode::BAD_REQUEST, Json(err)),
+    };
+
     // ── Step 1: raise & focus the target window ───────────────────────────────
     let focus_script = format!(
         r#"tell application "System Events"
@@ -191,7 +308,7 @@ async fn handle_focus(Json(req): Json<FocusRequest>) -> (StatusCode, Json<ApiRes
   perform action "AXRaise" of targetWin
   set frontmost of vsProc to true
 end tell"#,
-        app_name = req.app_name,
+        app_name = app_name,
         window_name = req.window_name,
     );
 
@@ -209,7 +326,7 @@ end tell"#,
   set frontmost of vsProc to true
   keystroke "i" using {{command down, shift down}}
 end tell"#,
-            app_name = req.app_name,
+            app_name = app_name,
         );
 
         if let Err(e) = run_applescript(&open_chat_script).await {
@@ -234,7 +351,7 @@ end tell"#,
   set frontmost of vsProc to true
   keystroke "v" using {{command down}}
 end tell"#,
-            app_name = req.app_name,
+            app_name = app_name,
         );
 
         if let Err(e) = run_applescript(&paste_script).await {
@@ -250,7 +367,7 @@ end tell"#,
   set frontmost of vsProc to true
   key code 36
 end tell"#,
-            app_name = req.app_name,
+            app_name = app_name,
         );
 
         if let Err(e) = run_applescript(&enter_script).await {
@@ -278,49 +395,62 @@ async fn handle_list_windows(
             StatusCode::BAD_REQUEST,
             Json(WindowsResponse {
                 success: false,
-                windows: vec![e.message],
+                message: Some(e.message),
+                windows: vec![],
             }),
         );
     }
 
-    let script = format!(
-        r#"tell application "System Events"
-  set vsProc to first process whose name is "{app_name}"
-  set output to ""
-  repeat with w in (every window of vsProc)
-    try
-      set t to title of w
-      set output to output & t & linefeed
-    end try
-  end repeat
-  return output
-end tell"#,
-        app_name = q.app_name,
-    );
-
-    match run_applescript(&script).await {
-        Ok(output) => {
-            let windows: Vec<String> = output
-                .lines()
-                .filter(|l| !l.is_empty())
-                .map(|l| l.to_string())
-                .collect();
-            (
-                StatusCode::OK,
+    let app_names = match resolve_running_app_names(&q.app_name).await {
+        Ok(names) => names,
+        Err(err) => {
+            return (
+                StatusCode::BAD_REQUEST,
                 Json(WindowsResponse {
-                    success: true,
-                    windows,
+                    success: false,
+                    message: Some(err.message),
+                    windows: vec![],
                 }),
             )
         }
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(WindowsResponse {
-                success: false,
-                windows: vec![e],
-            }),
-        ),
+    };
+
+    let mut windows = Vec::new();
+    for app_name in app_names {
+        match list_windows_for_app(&app_name).await {
+            Ok(app_windows) => {
+                windows.extend(app_windows.into_iter().map(|title| WindowEntry {
+                    app_name: app_name.clone(),
+                    title,
+                }));
+            }
+            Err(e) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(WindowsResponse {
+                        success: false,
+                        message: Some(e),
+                        windows: vec![],
+                    }),
+                )
+            }
+        }
     }
+
+    windows.sort_by(|left, right| {
+        left.title
+            .cmp(&right.title)
+            .then(left.app_name.cmp(&right.app_name))
+    });
+
+    (
+        StatusCode::OK,
+        Json(WindowsResponse {
+            success: true,
+            message: None,
+            windows,
+        }),
+    )
 }
 
 /// GET /health

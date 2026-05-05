@@ -50,6 +50,7 @@ const router = useRouter()
 const props = defineProps({
   macId: { type: String, required: true },
   windowName: { type: String, required: true },
+  appName: { type: String, default: '' },
 })
 
 const mac = getMacById(props.macId)
@@ -78,6 +79,7 @@ async function sendChat() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        app_name: props.appName || undefined,
         window_name: props.windowName,
         open_chat: openChat.value,
         chat_content: chatContent.value,
