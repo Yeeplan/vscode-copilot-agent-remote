@@ -1,7 +1,8 @@
 <template>
   <div class="screen">
     <div class="nav-bar">
-      <h1 class="nav-title">VS Code 窗口</h1>
+      <button class="nav-back" @click="$router.push({ name: 'macs' })">‹ 返回</button>
+      <h1 class="nav-title">{{ navTitle }}</h1>
     </div>
 
     <div v-if="offline" class="offline-banner">
@@ -9,7 +10,13 @@
     </div>
 
     <div class="content">
-      <div v-if="loading" class="state-container">
+      <div v-if="!mac" class="state-container">
+        <div class="error-icon">⚠️</div>
+        <p class="state-text">未找到所选 Mac，或 Mac 已被删除。</p>
+        <button class="retry-btn" @click="$router.push({ name: 'macs' })">返回选择</button>
+      </div>
+
+      <div v-else-if="loading" class="state-container">
         <div class="spinner"></div>
         <p class="state-text">加载中...</p>
       </div>
@@ -58,17 +65,26 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { getMacById } from '../macStore'
 
 const CACHE_KEY = 'vscode-remote:windows'
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:3030'
+
+const props = defineProps({
+  macId: { type: String, required: true },
+})
 
 const router = useRouter()
 const windows = ref([])
 const loading = ref(false)
 const error = ref('')
 const offline = ref(false)
+const mac = ref(getMacById(props.macId))
+
+const navTitle = computed(() => {
+  return mac.value ? `${mac.value.name} · 窗口` : 'Mac 窗口'
+})
 
 function loadCache() {
   try {
@@ -85,11 +101,12 @@ function saveCache(list) {
 }
 
 async function loadWindows() {
+  if (!mac.value) return
   loading.value = true
   error.value = ''
   offline.value = false
   try {
-    const res = await fetch(`${API_BASE}/api/windows`)
+    const res = await fetch(`${mac.value.address}/api/windows`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     const list = data.windows ?? data
@@ -108,13 +125,14 @@ async function loadWindows() {
 }
 
 function openChat(windowName) {
-  router.push({ name: 'chat', params: { windowName } })
+  router.push({ name: 'chat', params: { macId: props.macId, windowName } })
 }
 
 onMounted(() => {
-  // 立即显示缓存，同时尝试刷新
-  const cached = loadCache()
-  if (cached.length > 0) windows.value = cached
-  loadWindows()
+  if (mac.value) {
+    const cached = loadCache()
+    if (cached.length > 0) windows.value = cached
+    loadWindows()
+  }
 })
 </script>

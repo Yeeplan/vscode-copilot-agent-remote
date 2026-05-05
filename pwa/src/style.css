@@ -220,6 +220,88 @@ html, body, #app {
   to { transform: rotate(360deg); }
 }
 
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-label {
+  font-size: 13px;
+  color: #6e6e73;
+}
+
+.settings-input {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid rgba(60, 60, 67, 0.18);
+  border-radius: 12px;
+  background: #f7f7fa;
+  font-size: 15px;
+  color: #1c1c1e;
+}
+
+.delete-btn {
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 12px;
+  background: #ff3b30;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.settings-toolbar {
+  gap: 12px;
+}
+
+.toolbar-btn.primary {
+  background: #007aff;
+  color: #fff;
+  border-radius: 18px;
+  padding: 10px 18px;
+}
+
+.list-item-subtitle {
+  display: block;
+  margin-top: 4px;
+  color: #6e6e73;
+  font-size: 14px;
+}
+
+.result-banner {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  font-size: 15px;
+}
+
+.result-banner.success {
+  background: #e6f4ea;
+  color: #0a7f22;
+}
+
+.result-banner.fail {
+  background: #fdecea;
+  color: #981b1f;
+}
+
 /* Chat form */
 .chat-form {
   background: #fff;

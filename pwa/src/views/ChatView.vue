@@ -1,7 +1,7 @@
 <template>
   <div class="screen">
     <div class="nav-bar">
-      <button class="nav-back" @click="$router.back()">‹ 返回</button>
+      <button class="nav-back" @click="goBack">‹ 返回</button>
       <h1 class="nav-title">{{ shortName }}</h1>
     </div>
 
@@ -43,12 +43,17 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { getMacById } from '../macStore'
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:3030'
-
+const router = useRouter()
 const props = defineProps({
+  macId: { type: String, required: true },
   windowName: { type: String, required: true },
 })
+
+const mac = getMacById(props.macId)
+const API_BASE = mac ? mac.address : (import.meta.env.VITE_API_BASE || 'http://127.0.0.1:3030')
 
 const chatContent = ref('')
 const openChat = ref(true)
@@ -59,6 +64,10 @@ const shortName = computed(() => {
   const parts = props.windowName.split(' — ')
   return parts[0] || props.windowName
 })
+
+function goBack() {
+  router.push({ name: 'windows', params: { macId: props.macId } })
+}
 
 async function sendChat() {
   if (!chatContent.value.trim()) return

@@ -1,18 +1,31 @@
 import { createRouter, createWebHistory, createWebHashHistory } from 'vue-router'
+import MacListView from '../views/MacListView.vue'
 import WindowsView from '../views/WindowsView.vue'
 import ChatView from '../views/ChatView.vue'
+import SettingsView from '../views/SettingsView.vue'
 
 const routes = [
   {
     path: '/',
-    name: 'windows',
-    component: WindowsView,
+    name: 'macs',
+    component: MacListView,
   },
   {
-    path: '/chat/:windowName',
+    path: '/mac/:macId',
+    name: 'windows',
+    component: WindowsView,
+    props: true,
+  },
+  {
+    path: '/mac/:macId/chat/:windowName',
     name: 'chat',
     component: ChatView,
     props: true,
+  },
+  {
+    path: '/settings',
+    name: 'settings',
+    component: SettingsView,
   },
 ]
 
