@@ -1,5 +1,6 @@
 # Build output
 /target/
+*.dmg
 
 # Cargo lock (keep for binaries, remove this line for libraries)
 # Cargo.lock
