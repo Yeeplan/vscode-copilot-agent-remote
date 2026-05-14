@@ -270,7 +270,9 @@ async fn close_window_for_app(app_name: &str, window_name: &str) -> Result<(), S
         r#"tell application "System Events"
   set vsProc to first process whose name is "{app_name}"
   set targetWin to (first window of vsProc whose title contains "{window_name}")
-  perform action "AXClose" of targetWin
+    perform action "AXRaise" of targetWin
+    set frontmost of vsProc to true
+    keystroke "w" using {{command down}}
 end tell"#,
         app_name = app_name,
         window_name = window_name,

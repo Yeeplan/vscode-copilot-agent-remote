@@ -15,7 +15,39 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PWA_DIR="${SCRIPT_DIR}/pwa"
 DIST_DIR="${PWA_DIR}/dist"
 
+bump_pwa_version() {
+  local package_json="${PWA_DIR}/package.json"
+  local new_version
+
+  new_version="$(node -e '
+const fs = require("fs")
+const packagePath = process.argv[1]
+const pkg = JSON.parse(fs.readFileSync(packagePath, "utf8"))
+const parts = String(pkg.version || "0.0.0").split(".")
+
+if (parts.length !== 3) {
+  throw new Error(`Unsupported version format: ${pkg.version}`)
+}
+
+const patch = Number(parts[2])
+if (!Number.isInteger(patch)) {
+  throw new Error(`Unsupported version format: ${pkg.version}`)
+}
+
+parts[2] = String(patch + 1)
+pkg.version = parts.join(".")
+
+fs.writeFileSync(packagePath, JSON.stringify(pkg, null, 2) + "\n")
+process.stdout.write(pkg.version)
+' "${package_json}")"
+
+  echo "✓ PWA 版本号已自增至 ${new_version}"
+}
+
 # ── Step 1: 编译 ──────────────────────────────────────────────────────────────
+echo "▶ 自增 PWA 版本号..."
+bump_pwa_version
+
 echo "▶ 编译 PWA..."
 cd "${PWA_DIR}"
 npm run build

@@ -126,7 +126,10 @@ async function closeWindow() {
   } finally {
     closing.value = false
     if (result.value?.success) {
-      setTimeout(() => { result.value = null }, 3000)
+      setTimeout(() => {
+        result.value = null
+        goBack()
+      }, 2000)
     }
   }
 }

@@ -1,7 +1,7 @@
 <template>
   <div class="screen">
     <div class="nav-bar">
-      <h1 class="nav-title">选择 Mac</h1>
+      <h1 class="nav-title">{{ homeTitle }}</h1>
     </div>
 
     <div class="content">
@@ -41,9 +41,13 @@
 import { loadMacs } from '../macStore'
 import { useRouter } from 'vue-router'
 import { ref } from 'vue'
+import packageJson from '../../package.json'
 
 const router = useRouter()
 const macs = ref(loadMacs())
+const appVersion = packageJson.version || '0.0.0'
+
+const homeTitle = `选择 Mac v${appVersion}`
 
 function selectMac(macId) {
   router.push({ name: 'windows', params: { macId } })
