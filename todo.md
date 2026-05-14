@@ -22,3 +22,5 @@ callWithAsyncErrorHandling @ runtime-core.esm-bundler.js:206
 - [x] deploy-rust.sh的方式对于普通用户还是太复杂，能否生成一个dmg安装器
 - [x] rust程序需求既支持VSCode Insider，也支持VSCode
 - [x] pwa更新后需保证被浏览器缓存的旧版能够失效
+- [x] rust程序需要提供支持关闭窗口的接口，对应的pwa需提供关闭窗口的按钮，关闭前需用户再确认避免误点击
+- [x] pwa程序点击关闭窗口按钮并确认后，出现错误提示但是几秒后自动消失了，来不及复制

@@ -35,6 +35,16 @@ struct FocusRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct CloseWindowRequest {
+    /// Process name of the application, e.g. "Code - Insiders"
+    #[serde(default = "default_app_name")]
+    app_name: String,
+
+    /// Partial string matched against window titles (case-sensitive)
+    window_name: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct ListWindowsQuery {
     #[serde(default = "default_app_name")]
     app_name: String,
@@ -255,6 +265,20 @@ async fn resolve_window_app_name(preferred_app_name: &str, window_name: &str) ->
     })
 }
 
+async fn close_window_for_app(app_name: &str, window_name: &str) -> Result<(), String> {
+    let script = format!(
+        r#"tell application "System Events"
+  set vsProc to first process whose name is "{app_name}"
+  set targetWin to (first window of vsProc whose title contains "{window_name}")
+  perform action "AXClose" of targetWin
+end tell"#,
+        app_name = app_name,
+        window_name = window_name,
+    );
+
+    run_applescript(&script).await.map(|_| ())
+}
+
 // ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
@@ -384,6 +408,53 @@ end tell"#,
     )
 }
 
+/// POST /api/close-window
+///
+/// Close a VS Code window by partial title match.
+async fn handle_close_window(Json(req): Json<CloseWindowRequest>) -> (StatusCode, Json<ApiResponse>) {
+    macro_rules! bad_req {
+        ($msg:expr) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse {
+                    success: false,
+                    message: $msg,
+                }),
+            )
+        };
+    }
+
+    if let Err(e) = validate_as_string_arg("app_name", &req.app_name) {
+        bad_req!(e.message);
+    }
+    if let Err(e) = validate_as_string_arg("window_name", &req.window_name) {
+        bad_req!(e.message);
+    }
+
+    let app_name = match resolve_window_app_name(&req.app_name, &req.window_name).await {
+        Ok(name) => name,
+        Err(err) => return (StatusCode::BAD_REQUEST, Json(err)),
+    };
+
+    if let Err(e) = close_window_for_app(&app_name, &req.window_name).await {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse {
+                success: false,
+                message: format!("Close window failed: {e}"),
+            }),
+        );
+    }
+
+    (
+        StatusCode::OK,
+        Json(ApiResponse {
+            success: true,
+            message: "OK".to_string(),
+        }),
+    )
+}
+
 /// GET /api/windows?app_name=Code%20-%20Insiders
 ///
 /// List all window titles of a running application.
@@ -478,6 +549,7 @@ async fn main() {
         .route("/health", get(health))
         .route("/api/windows", get(handle_list_windows))
         .route("/api/focus", post(handle_focus))
+        .route("/api/close-window", post(handle_close_window))
         .layer(cors);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
@@ -487,6 +559,7 @@ async fn main() {
     println!("  GET  /health");
     println!("  GET  /api/windows?app_name=<name>");
     println!("  POST /api/focus   (JSON body)");
+    println!("  POST /api/close-window   (JSON body)");
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();

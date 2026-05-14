@@ -205,6 +205,17 @@ html, body, #app {
   cursor: pointer;
   font-weight: 500;
 }
+.close-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 12px;
+  background: #ff3b30;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  font-weight: 600;
+}
 
 /* Spinner */
 .spinner {

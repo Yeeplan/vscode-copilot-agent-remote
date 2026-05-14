@@ -32,6 +32,11 @@
           <span v-if="sending" class="btn-spinner"></span>
           <span v-else>发送</span>
         </button>
+
+        <button class="close-btn" :disabled="sending || closing" @click="closeWindow">
+          <span v-if="closing" class="btn-spinner"></span>
+          <span v-else>关闭窗口</span>
+        </button>
       </div>
 
       <div v-if="result" class="result-banner" :class="result.success ? 'success' : 'fail'">
@@ -59,6 +64,7 @@ const API_BASE = mac ? mac.address : (import.meta.env.VITE_API_BASE || 'http://1
 const chatContent = ref('')
 const openChat = ref(true)
 const sending = ref(false)
+const closing = ref(false)
 const result = ref(null)
 
 const shortName = computed(() => {
@@ -92,7 +98,36 @@ async function sendChat() {
     result.value = { success: false, message: '网络错误，请重试' }
   } finally {
     sending.value = false
-    setTimeout(() => { result.value = null }, 3000)
+    if (result.value?.success) {
+      setTimeout(() => { result.value = null }, 3000)
+    }
+  }
+}
+
+async function closeWindow() {
+  const confirmed = window.confirm(`确定要关闭这个窗口吗？\n\n${props.windowName}`)
+  if (!confirmed) return
+
+  closing.value = true
+  result.value = null
+  try {
+    const res = await fetch(`${API_BASE}/api/close-window`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        app_name: props.appName || undefined,
+        window_name: props.windowName,
+      }),
+    })
+    const data = await res.json()
+    result.value = { success: data.success, message: data.success ? '窗口已关闭' : (data.message || '关闭失败') }
+  } catch {
+    result.value = { success: false, message: '网络错误，请重试' }
+  } finally {
+    closing.value = false
+    if (result.value?.success) {
+      setTimeout(() => { result.value = null }, 3000)
+    }
   }
 }
 </script>
