@@ -482,3 +482,64 @@ html, body, #app {
   text-align: center;
   margin: 12px 0 0;
 }
+
+/* Session panel (shown in ChatView after listing sessions) */
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin: 20px 0 8px;
+}
+
+.session-panel {
+  margin-top: 8px;
+}
+
+.session-list {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 12px 16px;
+  background: #fff;
+  border: none;
+  border-bottom: 0.5px solid rgba(60, 60, 67, 0.18);
+  cursor: pointer;
+  text-align: left;
+  gap: 8px;
+  transition: background 0.15s;
+}
+
+.session-item:last-child {
+  border-bottom: none;
+}
+
+.session-item:active {
+  background: #d1d1d6;
+}
+
+.session-item-title {
+  flex: 1;
+  font-size: 15px;
+  color: #1c1c1e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-item-chevron {
+  font-size: 20px;
+  color: #c7c7cc;
+  flex-shrink: 0;
+}
+
+.close-btn.secondary {
+  background: #636366;
+}

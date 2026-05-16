@@ -37,10 +37,30 @@
           <span v-if="closing" class="btn-spinner"></span>
           <span v-else>关闭窗口</span>
         </button>
+
+        <button class="close-btn secondary" :disabled="sending || closing || loadingSessions" @click="listSessions">
+          <span v-if="loadingSessions" class="btn-spinner"></span>
+          <span v-else>列出会话</span>
+        </button>
       </div>
 
       <div v-if="result" class="result-banner" :class="result.success ? 'success' : 'fail'">
         {{ result.message }}
+      </div>
+
+      <div v-if="sessions.length" class="session-panel">
+        <div class="section-title">会话列表</div>
+        <div class="session-list">
+          <button
+            v-for="session in sessions"
+            :key="session.id"
+            class="session-item"
+            @click="openSession(session)"
+          >
+            <span class="session-item-title">{{ session.title }}</span>
+            <span class="session-item-chevron">›</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -65,6 +85,16 @@ const chatContent = ref('')
 const openChat = ref(true)
 const sending = ref(false)
 const closing = ref(false)
+const loadingSessions = ref(false)
+const sessions = ref([])
+
+function openSession(session) {
+  router.push({
+    name: 'sessionDetail',
+    params: { macId: props.macId, sessionId: session.id },
+    query: { appName: props.appName || undefined, title: session.title },
+  })
+}
 const result = ref(null)
 
 const shortName = computed(() => {
@@ -131,6 +161,41 @@ async function closeWindow() {
         goBack()
       }, 2000)
     }
+  }
+}
+
+async function listSessions() {
+  loadingSessions.value = true
+  result.value = null
+
+  try {
+    const res = await fetch(`${API_BASE}/api/list-sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        app_name: props.appName || undefined,
+        window_name: props.windowName,
+      }),
+    })
+
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || '列出会话失败')
+    }
+
+    sessions.value = Array.isArray(data.sessions) ? data.sessions : []  // [{id, title}]
+    result.value = {
+      success: true,
+      message: sessions.value.length > 0 ? `共找到 ${sessions.value.length} 个会话` : '未找到会话',
+    }
+  } catch (error) {
+    result.value = {
+      success: false,
+      message: `列出会话失败: ${error.message || error}`,
+    }
+    sessions.value = []
+  } finally {
+    loadingSessions.value = false
   }
 }
 </script>

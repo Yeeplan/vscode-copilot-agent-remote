@@ -3,6 +3,7 @@ import MacListView from '../views/MacListView.vue'
 import WindowsView from '../views/WindowsView.vue'
 import ChatView from '../views/ChatView.vue'
 import SettingsView from '../views/SettingsView.vue'
+import SessionDetailView from '../views/SessionDetailView.vue'
 
 const routes = [
   {
@@ -24,6 +25,17 @@ const routes = [
       macId: route.params.macId,
       windowName: route.params.windowName,
       appName: typeof route.query.appName === 'string' ? route.query.appName : '',
+    }),
+  },
+  {
+    path: '/mac/:macId/session/:sessionId',
+    name: 'sessionDetail',
+    component: SessionDetailView,
+    props: route => ({
+      macId: route.params.macId,
+      sessionId: route.params.sessionId,
+      appName: typeof route.query.appName === 'string' ? route.query.appName : '',
+      title: typeof route.query.title === 'string' ? route.query.title : '',
     }),
   },
   {
